@@ -48,6 +48,10 @@ from setuptools import setup
 import os
 import sys
 
+if sys.version_info < (3, 3):
+  import exceptions
+  PermissionError = exceptions.OSError
+
 creating_package = "sdist" in sys.argv
 
 # Load version from Git tag
@@ -78,17 +82,19 @@ if creating_package:
   fibre_link = os.path.join(os.path.dirname(
                     os.path.realpath(__file__)), "fibre")
   if not os.path.exists(fibre_link):
-    os.symlink(fibre_src, fibre_link, True)
+    if sys.version_info > (3, 3):
+      os.symlink(fibre_src, fibre_link, target_is_directory=True)
+    else:
+      os.symlink(fibre_src, fibre_link)
 
 # TODO: find a better place for this
 if not creating_package:
   import platform
   if platform.system() == 'Linux':
-    import odrive.utils
     from fibre.utils import Logger
     try:
-      odrive.utils.setup_udev_rules(Logger())
-    except PermissionError:
+      odrive.version.setup_udev_rules(Logger())
+    except Exception:
       print("Warning: could not set up udev rules. Run `sudo odrivetool udev-setup` to try again.")
 
 try:
@@ -110,6 +116,7 @@ try:
       'requests', # Used to by DFU to load firmware files
       'IntelHex', # Used to by DFU to download firmware from github
       'matplotlib', # Required to run the liveplotter
+      'monotonic', # For compatibility with older python versions
       'pywin32 >= 222; platform_system == "Windows"' # Required for fancy terminal features on Windows
     ],
     package_data={'': ['version.txt']},
